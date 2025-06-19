@@ -2,6 +2,87 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import Otp from "../models/Otp.js";
+import { sendOtpEmail } from "../utils/sendMail.js";
+import jwt from "jsonwebtoken";
+
+export const initiateSignup = async (req, res) => {
+  const { fullName, email, password } = req.body;
+  try {
+    const userExists = await User.findOne({ email });
+    if (userExists) return res.status(400).json({ message: "User already exists" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await Otp.deleteMany({ email });
+    await Otp.create({ email, otp });
+    // await sendVerificationEmail(email, otp);
+    await sendOtpEmail(email, otp);
+
+    res.status(200).json({ message: "OTP sent to email" });
+  } catch (error) {
+    res.status(500).json({ message: "Error sending OTP", error: error.message });
+  }
+};
+
+export const verifyOtpAndSignup = async (req, res) => {
+  const { fullName, email, password, otp } = req.body;
+
+  try {
+    // Validate required fields
+    if (!fullName || !email || !password || !otp) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Find OTP entry
+    const validOtp = await Otp.findOne({ email, otp });
+    if (!validOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+
+    // Check OTP expiration (10 min expiry)
+    const otpExpiry = 10 * 60 * 1000;
+    if (Date.now() - new Date(validOtp.createdAt).getTime() > otpExpiry) {
+      await Otp.deleteMany({ email });
+      return res.status(400).json({ message: "OTP expired. Please try again." });
+    }
+
+    // Check if user already exists
+    // const existingUser = await User.findOne({ email });
+    // if (existingUser) {
+    //   return res.status(400).json({ message: "User already exists" });
+    // }
+
+    // Hash password and create user
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      fullName,
+      email,
+      password: hashedPassword,
+    });
+
+    // Create JWT token
+    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    // Clean up OTP
+    await Otp.deleteMany({ email });
+
+    return res.status(201).json({
+      message: "Signup successful",
+      token,
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    return res.status(500).json({ message: "Signup failed. Please try again." });
+  }
+};
 
 export const signup = async (req, res) => {
   const { fullName, email, password } = req.body;
