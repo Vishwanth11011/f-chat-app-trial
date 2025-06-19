@@ -6,20 +6,32 @@ const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
   const [selectedImg, setSelectedImg] = useState(null);
 
+  // const handleImageUpload = async (e) => {
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+
+  //   const reader = new FileReader();
+
+  //   reader.readAsDataURL(file);
+
+  //   reader.onload = async () => {
+  //     const base64Image = reader.result;
+  //     setSelectedImg(base64Image);
+  //     await updateProfile({ profilePic: base64Image });
+  //   };
+  // };
+
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const reader = new FileReader();
+  // Show preview
+  const previewUrl = URL.createObjectURL(file);
+  setSelectedImg(previewUrl);
 
-    reader.readAsDataURL(file);
-
-    reader.onload = async () => {
-      const base64Image = reader.result;
-      setSelectedImg(base64Image);
-      await updateProfile({ profilePic: base64Image });
-    };
-  };
+  // Call updateProfile with file
+  await updateProfile(file);
+};
 
   return (
     <div className="h-screen pt-20">

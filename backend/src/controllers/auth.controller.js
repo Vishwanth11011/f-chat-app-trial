@@ -166,28 +166,59 @@ export const logout = (req, res) => {
   }
 };
 
+// export const updateProfile = async (req, res) => {
+//   try {
+//     const { profilePic } = req.body;
+//     const userId = req.user._id;
+
+//     if (!profilePic) {
+//       return res.status(400).json({ message: "Profile pic is required" });
+//     }
+
+//     const uploadResponse = await cloudinary.uploader.upload(profilePic);
+//     const updatedUser = await User.findByIdAndUpdate(
+//       userId,
+//       { profilePic: uploadResponse.secure_url },
+//       { new: true }
+//     );
+
+//     res.status(200).json(updatedUser);
+//   } catch (error) {
+//     console.log("error in update profile:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic } = req.body;
     const userId = req.user._id;
 
-    if (!profilePic) {
-      return res.status(400).json({ message: "Profile pic is required" });
+    // Check if file is provided
+    if (!req.files || !req.files.profilePic) {
+      return res.status(400).json({ message: "Profile picture is required." });
     }
 
-    const uploadResponse = await cloudinary.uploader.upload(profilePic);
+    const file = req.files.profilePic;
+
+    // Upload to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload(file.tempFilePath, {
+      folder: "profile_pics", // optional, for organization
+    });
+
+    // Update user with Cloudinary URL
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profilePic: uploadResponse.secure_url },
       { new: true }
-    );
+    ).select("-password"); // Do not return password
 
     res.status(200).json(updatedUser);
   } catch (error) {
-    console.log("error in update profile:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.log("Error in updateProfile controller:", error.message);
+    res.status(500).json({ message: "Internal server error." });
   }
 };
+
 
 export const checkAuth = (req, res) => {
   try {
